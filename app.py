@@ -13,7 +13,7 @@ MODEL_OPTIONS = {
 # Select model
 selected_model, model_type = st.selectbox(
     "Select a model:", 
-    list(MODEL_OPTIONS.values()), 
+    list(MODEL_OPTIONS), 
     format_func=lambda x: x[0]
 )
 
