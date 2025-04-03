@@ -10,25 +10,21 @@ MODEL_OPTIONS = {
     # "VGG16" : ("1nv2I-K8QKbGc62eQDx5OLcRYinjJPXai","pytorch")
 }
 
-# Select model
-selected_model, model_type = st.selectbox(
-    "Select a model:", 
-    list(MODEL_OPTIONS), 
-    format_func=lambda x: x[0]
-)
+# 🔹 Select model by name
+selected_model_name = st.selectbox("Select a model:", list(MODEL_OPTIONS.keys()))
+
+# 🔹 Get the File ID and Model Type
+selected_model_id, selected_model_type = MODEL_OPTIONS[selected_model_name]
 
 @st.cache_resource
 def load_model(model_id, model_type):
     url = f"https://drive.google.com/uc?id={model_id}"
     output = f"model.{ 'h5' if model_type == 'keras' else 'pth' }"
 
-    # Download model
     gdown.download(url, output, quiet=False)
 
-    # Load Keras Model
     if model_type == "keras":
         model = tf.keras.models.load_model(output)
-    # Load PyTorch Model
     else:
         model = torch.load(output, map_location=torch.device('cpu'))
         model.eval()
@@ -36,14 +32,14 @@ def load_model(model_id, model_type):
     return model
 
 if st.button("Load Model"):
-    model = load_model(selected_model[0], selected_model[1])
-    st.write(f"✅ {selected_model[0]} Loaded Successfully!")
-
+    model = load_model(selected_model_id, selected_model_type)
+    st.write(f"✅ {selected_model_name} Loaded Successfully!")
+            st.error("❌ Please load a model first!")
 # Upload an image
 uploaded_file = st.file_uploader("Upload an image", type=["jpg", "png", "jpeg"])
 
 def preprocess_image(image, model_type):
-    image = image.resize((64, 64))  # Resize for the model
+    image = image.resize((224, 224))  # Resize for the model
     image_array = np.array(image) / 255.0  # Normalize
     
     if model_type == "keras":
