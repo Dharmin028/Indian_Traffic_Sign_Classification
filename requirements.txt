@@ -6,4 +6,4 @@ pillow
 numpy
 h5py
 python-magic
-opencv-python
+opencv-python-headless
