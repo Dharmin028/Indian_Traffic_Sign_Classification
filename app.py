@@ -3,16 +3,14 @@ import tensorflow as tf
 import gdown
 import torch
 import os
-import h5py
 from PIL import Image
 import numpy as np
 import magic
-import zipfile
 
 # Define model options and corresponding Google Drive File IDs
 MODEL_OPTIONS = {
-    "CNN": ("1---NhvKS9H-c5yf04hB8NzOrtIpFcKL8", "keras"),  # Your zip file ID with .keras model
-    "ResNet50": ("1nv2I-K8QKbGc62eQDx5OLcRYinjJPXai", "keras")  # Replace with actual File ID
+    "CNN": ("1---NhvKS9H-c5yf04hB8NzOrtIpFcKL8", "keras"),  # Replace with actual File ID of model.keras
+    "ResNet50": ("1nv2I-K8QKbGc62eQDx5OLcRYinjJPXai", "keras")
 }
 
 # Streamlit UI
@@ -32,62 +30,33 @@ else:
 @st.cache_resource
 def load_model(model_id, model_type):
     url = f"https://drive.google.com/uc?id={model_id}"
-    zip_output = "model.zip"  # Download as zip first
-    keras_output = None       # Will be set to the extracted .keras file
+    output = "model.keras"  # Download directly as model.keras
     
-    st.write(f"Downloading model from {url} to {zip_output}...")
+    st.write(f"Downloading model from {url} to {output}...")
     try:
-        gdown.download(url, zip_output, quiet=False, fuzzy=True)
+        gdown.download(url, output, quiet=False, fuzzy=True)
     except Exception as e:
         st.error(f"Download failed: {e}")
         return None
     
-    if not os.path.exists(zip_output):
-        st.error(f"File {zip_output} not found after download!")
+    if not os.path.exists(output):
+        st.error(f"File {output} not found after download!")
         return None
     
-    st.write(f"File size: {os.path.getsize(zip_output)} bytes")
-    
-    # Check if it's a zip file and extract the .keras file
-    file_type = magic.from_file(zip_output)
+    st.write(f"File size: {os.path.getsize(output)} bytes")
+    file_type = magic.from_file(output)
     st.write(f"Detected file type: {file_type}")
     
-    if "Zip archive" in file_type:
-        try:
-            with zipfile.ZipFile(zip_output, 'r') as zip_ref:
-                # Look for a .keras file in the zip
-                keras_files = [f for f in zip_ref.namelist() if f.endswith('.keras')]
-                if not keras_files:
-                    st.error("No .keras file found in the zip archive!")
-                    return None
-                if len(keras_files) > 1:
-                    st.warning("Multiple .keras files found; using the first one.")
-                zip_ref.extract(keras_files[0], path=".")
-                keras_output = keras_files[0]  # Use the extracted file name
-                st.write(f"Extracted {keras_output} from zip.")
-        except Exception as e:
-            st.error(f"Failed to extract zip: {e}")
-            return None
-    else:
-        st.error("Downloaded file is not a zip archive!")
-        return None
-    
-    if not os.path.exists(keras_output):
-        st.error(f"Extracted file {keras_output} not found!")
-        return None
-    
-    # Load the extracted .keras file
     if model_type == "keras":
         try:
-            # .keras files don’t need h5py verification; load directly
-            model = tf.keras.models.load_model(keras_output)
+            model = tf.keras.models.load_model(output)
             st.write("Keras model (.keras format) loaded successfully.")
         except Exception as e:
             st.error(f"Failed to load Keras model: {e}")
             return None
     else:
         try:
-            model = torch.load(keras_output, map_location=torch.device('cpu'))
+            model = torch.load(output, map_location=torch.device('cpu'))
             model.eval()
             st.write("PyTorch model loaded successfully.")
         except Exception as e:
