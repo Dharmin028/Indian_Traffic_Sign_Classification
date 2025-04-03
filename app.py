@@ -3,8 +3,9 @@ import tensorflow as tf
 import gdown
 import torch
 import os
-from PIL import Image
+import cv2
 import numpy as np
+from PIL import Image
 import magic
 
 # Define model options and corresponding Google Drive File IDs
@@ -81,17 +82,12 @@ if st.button("Load Model"):
 uploaded_file = st.file_uploader("Upload an image", type=["jpg", "png", "jpeg"])
 
 # Preprocess image function
-def preprocess_image(image, model_type):
-    image = image.resize((224, 224))  # Adjust size based on your model's input requirements
-    image_array = np.array(image) / 255.0  # Normalize
-    
-    if model_type == "keras":
-        image_array = np.expand_dims(image_array, axis=0)  # Add batch dimension for Keras
-    else:  # PyTorch
-        image_array = np.transpose(image_array, (2, 0, 1))  # Change from HWC to CHW
-        image_array = torch.tensor(image_array, dtype=torch.float32).unsqueeze(0)  # Convert to tensor
-    
-    return image_array
+def preprocess_test_image(image_path):
+    image = cv2.imread(image_path)
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    image = cv2.resize(image, (64, 64))  # Adjust to model input size
+    image = image.astype('float32') / 255.0  # Normalize
+    return np.expand_dims(image, axis=0)  # Add batch dimension
 
 # Display and classify image
 if uploaded_file is not None:
@@ -101,13 +97,22 @@ if uploaded_file is not None:
     if st.button("Classify"):
         if st.session_state.model:
             try:
-                input_data = preprocess_image(image, selected_model_type)
+                # Convert PIL image to OpenCV format
+                image_cv = np.array(image)
+                image_cv = cv2.cvtColor(image_cv, cv2.COLOR_RGB2BGR)
+                
+                # Save to a temporary file to use preprocess_test_image
+                temp_path = "temp_image.jpg"
+                cv2.imwrite(temp_path, image_cv)
+                
+                # Preprocess image
+                input_data = preprocess_test_image(temp_path)
                 
                 if selected_model_type == "keras":
                     prediction = st.session_state.model.predict(input_data)
                 else:
                     with torch.no_grad():
-                        prediction = st.session_state.model(input_data).numpy()
+                        prediction = st.session_state.model(torch.tensor(input_data, dtype=torch.float32)).numpy()
                 
                 st.write("Prediction:", np.argmax(prediction))  # Adjust based on your class labels
             except Exception as e:
