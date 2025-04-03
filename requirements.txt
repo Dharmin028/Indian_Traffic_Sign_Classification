@@ -1,8 +1,8 @@
 streamlit
 tensorflow
-torch
-torchvision
-numpy
-pillow
 gdown
-python-magic-bin
+torch
+pillow
+numpy
+h5py
+python-magic
