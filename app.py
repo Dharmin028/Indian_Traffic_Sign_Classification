@@ -10,19 +10,28 @@ MODEL_OPTIONS = {
     # "VGG16" : ("1nv2I-K8QKbGc62eQDx5OLcRYinjJPXai","pytorch")
 }
 
+# 🔹 Ensure Streamlit UI elements work correctly
+st.title("Traffic Sign Classification")
+st.write("Select a model and upload an image for classification.")
+
 # 🔹 Select model by name
 selected_model_name = st.selectbox("Select a model:", list(MODEL_OPTIONS.keys()))
 
 # 🔹 Get the File ID and Model Type
-selected_model_id, selected_model_type = MODEL_OPTIONS[selected_model_name]
+if selected_model_name:
+    selected_model_id, selected_model_type = MODEL_OPTIONS[selected_model_name]
+else:
+    st.error("Please select a model!")
 
 @st.cache_resource
 def load_model(model_id, model_type):
     url = f"https://drive.google.com/uc?id={model_id}"
     output = f"model.{ 'h5' if model_type == 'keras' else 'pth' }"
 
-    gdown.download(url, output, quiet=False)
+    # 🔹 Download the model from Google Drive
+    gdown.download(url, output, quiet=False, fuzzy=True)
 
+    # 🔹 Load the correct model type
     if model_type == "keras":
         model = tf.keras.models.load_model(output)
     else:
@@ -33,8 +42,7 @@ def load_model(model_id, model_type):
 
 if st.button("Load Model"):
     model = load_model(selected_model_id, selected_model_type)
-    st.write(f"✅ {selected_model_name} Loaded Successfully!")
-            st.error("❌ Please load a model first!")
+    st.success(f"✅ {selected_model_name} Loaded Successfully!")
 # Upload an image
 uploaded_file = st.file_uploader("Upload an image", type=["jpg", "png", "jpeg"])
 
