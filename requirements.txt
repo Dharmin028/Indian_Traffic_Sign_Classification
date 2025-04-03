@@ -5,3 +5,4 @@ torchvision
 numpy
 pillow
 gdown
+python-magic-bin
