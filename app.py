@@ -6,12 +6,12 @@ import os
 import h5py
 from PIL import Image
 import numpy as np
+import magic  # For file type detection
 
 # Define model options and corresponding Google Drive File IDs
 MODEL_OPTIONS = {
     "CNN": ("1---NhvKS9H-c5yf04hB8NzOrtIpFcKL8", "keras"),  # Replace with actual File ID
     "ResNet50": ("1nv2I-K8QKbGc62eQDx5OLcRYinjJPXai", "keras")  # Replace with actual File ID
-    # Add more models as needed, e.g., "VGG16": ("file_id", "pytorch")
 }
 
 # Streamlit UI
@@ -44,20 +44,28 @@ def load_model(model_id, model_type):
         st.error(f"File {output} not found after download!")
         return None
     
-    st.write(f"File size: {os.path.getsize(output)} bytes")
+    file_size = os.path.getsize(output)
+    st.write(f"File size: {file_size} bytes")
     
     if model_type == "keras":
         try:
             with h5py.File(output, 'r') as f:
                 st.write("Verified as HDF5 file.")
             model = tf.keras.models.load_model(output)
+            st.write("Keras model loaded successfully.")
         except Exception as e:
             st.error(f"Failed to load Keras model: {e}")
+            try:
+                file_type = magic.from_file(output)
+                st.write(f"Detected file type: {file_type}")
+            except:
+                st.write("Could not determine file type.")
             return None
     else:
         try:
             model = torch.load(output, map_location=torch.device('cpu'))
             model.eval()
+            st.write("PyTorch model loaded successfully.")
         except Exception as e:
             st.error(f"Failed to load PyTorch model: {e}")
             return None
