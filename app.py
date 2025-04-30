@@ -103,7 +103,6 @@ if uploaded_file is not None:
     st.image(image, caption="Uploaded Image", use_column_width=True)
 
     if st.button("Classify"):
-        with st.spinner("Classifying..."):
         if st.session_state.model:
             try:
                 # Convert PIL image to OpenCV format
