@@ -105,13 +105,13 @@ if st.button("Load Model"):
 # Upload image
 uploaded_file = st.file_uploader("Upload an image", type=["jpg", "png", "jpeg"])
 
-# Preprocess uploaded image using PIL (no cv2 needed)
-def preprocess_uploaded_image(pil_image):
-    # Ensure image is in RGB
-    image = pil_image.convert("RGB")
-    image = image.resize((64, 64))
-    image = np.array(image).astype('float32') / 255.0
-    return np.expand_dims(image, axis=0)  # shape becomes (1, 64, 64, 3)
+# Preprocess image function using PIL
+def preprocess_test_image(image):
+    image = image.convert("RGB")  # Ensure the image is in RGB format
+    image = image.resize((64, 64))  # Resize to (64, 64)
+    image = np.array(image)  # Convert to NumPy array
+    image = image.astype('float32') / 255.0  # Normalize the image to [0, 1]
+    return np.expand_dims(image, axis=0)  # Add batch dimension
 
 # Classify button logic
 if uploaded_file is not None:
