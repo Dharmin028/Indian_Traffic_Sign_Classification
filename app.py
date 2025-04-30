@@ -3,9 +3,35 @@ import tensorflow as tf
 import gdown
 import torch
 import os
-from PIL import Image
+import cv2
 import numpy as np
+from PIL import Image
 import magic
+# Class ID to Label mapping
+id2label = {
+    0: 'ALL_MOTOR_VEHICLE_PROHIBITED', 1: 'AXLE_LOAD_LIMIT', 2: 'BARRIER_AHEAD',
+    3: 'BULLOCK_AND_HANDCART_PROHIBITED', 4: 'BULLOCK_PROHIBITED', 5: 'CATTLE',
+    6: 'CATTLE_PROHIBITED', 7: 'CHECK_POST', 8: 'COMPULSORY_AHEAD', 9: 'COMPULSORY_AHEAD_OR_TURN_LEFT',
+    10: 'COMPULSORY_KEEP_LEFT', 11: 'COMPULSORY_KEEP_RIGHT', 12: 'COMPULSORY_LEFT_TURN',
+    13: 'COMPULSORY_RIGHT_TURN', 14: 'CYCLE_CROSSING', 15: 'CYCLE_PROHIBITED', 16: 'DANGEROUS_DIP',
+    17: 'DEAD_END', 18: 'DEER_CROSSING', 19: 'DIRECTION_SIGN', 20: 'DIVERSION', 21: 'FALLING_ROCKS',
+    22: 'FERRY', 23: 'FERRY_PROHIBITED', 24: 'FOOTPATH', 25: 'GAP_IN_MEDIAN', 26: 'GIVEWAY',
+    27: 'GUARD_POST', 28: 'HAIRPIN_BEND_LEFT', 29: 'HAIRPIN_BEND_RIGHT', 30: 'HANDCART_PROHIBITED',
+    31: 'HORN_PROHIBITED', 32: 'HUMP_OR_ROUGH', 33: 'KEEP_LEFT', 34: 'LEFT_HAIR_PIN_BEND',
+    35: 'LEFT_REVERSE_BEND', 36: 'LEFT_TURN_PROHIBITED', 37: 'LEFTHAND_CURVE', 38: 'LOAD_LIMIT',
+    39: 'LOOSE_GRAVEL', 40: 'MEN_AT_WORK', 41: 'NARROW_BRIDGE', 42: 'NARROW_ROAD_AHEAD',
+    43: 'NO_ENTRY', 44: 'NO_PARKING', 45: 'NO_STOPPING_NO_STANDING', 46: 'ONE_WAY_SIGN',
+    47: 'OVERTAKING_PROHIBITED', 48: 'PARKING', 49: 'PEDESTRAIN_CROSSING', 50: 'PEDESTRAINS_PROHIBITED',
+    51: 'PETROL_PUMP', 52: 'RESTRICTION_ENDS', 53: 'RIGHT_HAIR_PIN_BEND', 54: 'RIGHT_REVERSE_BEND',
+    55: 'RIGHT_TURN_PROHIBITED', 56: 'RIGHTHAND_CURVE', 57: 'ROAD_WIDENS', 58: 'ROUNDABOUT',
+    59: 'SCHOOL_AHEAD', 60: 'SIDE_ROAD_LEFT', 61: 'SIDE_ROAD_RIGHT', 62: 'SLIPPERY_ROAD',
+    63: 'SPEED_LIMIT_20', 64: 'SPEED_LIMIT_30', 65: 'SPEED_LIMIT_40', 66: 'SPEED_LIMIT_50',
+    67: 'SPEED_LIMIT_60', 68: 'SPEED_LIMIT_70', 69: 'SPEED_LIMIT_80', 70: 'SPEED_LIMIT_90',
+    71: 'SPEED_LIMIT_REMOVER', 72: 'STOP', 73: 'STRAIGHT_PROHIBITED', 74: 'STRAIGHTPROHIBITED_LEFT_TURN',
+    75: 'STRAIGHTPROHIBITED_RIGHT_TURN', 76: 'T_INTERSECTION', 77: 'TRAFFIC_SIGNAL_AHEAD',
+    78: 'TRUCK_PROHIBITED', 79: 'TURN_LEFT', 80: 'TURN_RIGHT', 81: 'U_TURN_PROHIBITED',
+    82: 'UNGUARDED_LEVEL_CROSSING', 83: 'WIDTH_LIMIT', 84: 'Y_INTERSECTION'
+}
 
 # Define model options and corresponding Google Drive File IDs
 MODEL_OPTIONS = {
@@ -80,23 +106,13 @@ if st.button("Load Model"):
 # Upload image
 uploaded_file = st.file_uploader("Upload an image", type=["jpg", "png", "jpeg"])
 
-# Preprocess image function using PIL
-def preprocess_image(image, model_type):
-    # Convert image to RGB (in case it's not already)
-    image = image.convert('RGB')
-    # Resize image to the model's expected input size (224x224)
-    image = image.resize((224, 224))
-    # Normalize image values to [0, 1] range
-    image_array = np.array(image) / 255.0
-    
-    # Adjust image dimensions depending on model type
-    if model_type == "keras":
-        image_array = np.expand_dims(image_array, axis=0)  # Add batch dimension for Keras
-    else:  # For PyTorch
-        image_array = np.transpose(image_array, (2, 0, 1))  # Change from HWC to CHW
-        image_array = torch.tensor(image_array, dtype=torch.float32).unsqueeze(0)  # Convert to tensor
-    
-    return image_array
+# Preprocess image function
+def preprocess_test_image(image_path):
+    image = cv2.imread(image_path)
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    image = cv2.resize(image, (64, 64))  # Adjust to model input size
+    image = image.astype('float32') / 255.0  # Normalize
+    return np.expand_dims(image, axis=0)  # Add batch dimension
 
 # Display and classify image
 if uploaded_file is not None:
@@ -106,39 +122,26 @@ if uploaded_file is not None:
     if st.button("Classify"):
         if st.session_state.model:
             try:
-                input_data = preprocess_image(image, selected_model_type)
+                # Convert PIL image to OpenCV format
+                image_cv = np.array(image)
+                image_cv = cv2.cvtColor(image_cv, cv2.COLOR_RGB2BGR)
+                
+                # Save to a temporary file to use preprocess_test_image
+                temp_path = "temp_image.jpg"
+                cv2.imwrite(temp_path, image_cv)
+                
+                # Preprocess image
+                input_data = preprocess_test_image(temp_path)
                 
                 if selected_model_type == "keras":
                     prediction = st.session_state.model.predict(input_data)
                 else:
                     with torch.no_grad():
-                        prediction = st.session_state.model(input_data).numpy()
+                        prediction = st.session_state.model(torch.tensor(input_data, dtype=torch.float32)).numpy()
                 
-                # Map the index to class label
-                class_names = {
-                    0: 'ALL_MOTOR_VEHICLE_PROHIBITED', 1: 'AXLE_LOAD_LIMIT', 2: 'BARRIER_AHEAD', 3: 'BULLOCK_AND_HANDCART_PROHIBITED',
-                    4: 'BULLOCK_PROHIBITED', 5: 'CATTLE', 6: 'COMPULSARY_AHEAD', 7: 'COMPULSARY_AHEAD_OR_TURN_LEFT',
-                    8: 'COMPULSARY_AHEAD_OR_TURN_RIGHT', 9: 'COMPULSARY_CYCLE_TRACK', 10: 'COMPULSARY_KEEP_LEFT',
-                    11: 'COMPULSARY_KEEP_RIGHT', 12: 'COMPULSARY_MINIMUM_SPEED', 13: 'COMPULSARY_SOUND_HORN', 14: 'COMPULSARY_TURN_LEFT',
-                    15: 'COMPULSARY_TURN_LEFT_AHEAD', 16: 'COMPULSARY_TURN_RIGHT', 17: 'COMPULSARY_TURN_RIGHT_AHEAD', 18: 'CROSS_ROAD',
-                    19: 'CYCLE_CROSSING', 20: 'CYCLE_PROHIBITED', 21: 'DANGEROUS_DIP', 22: 'DIRECTION', 23: 'FALLING_ROCKS', 24: 'FERRY',
-                    25: 'GAP_IN_MEDIAN', 26: 'GIVE_WAY', 27: 'GUARDED_LEVEL_CROSSING', 28: 'HANDCART_PROHIBITED', 29: 'HEIGHT_LIMIT',
-                    30: 'HORN_PROHIBITED', 31: 'HUMP_OR_ROUGH_ROAD', 32: 'LEFT_HAIR_PIN_BEND', 33: 'LEFT_HAND_CURVE', 34: 'LEFT_REVERSE_BEND',
-                    35: 'LEFT_TURN_PROHIBITED', 36: 'LENGTH_LIMIT', 37: 'LOAD_LIMIT', 38: 'LOOSE_GRAVEL', 39: 'MEN_AT_WORK', 40: 'NARROW_BRIDGE',
-                    41: 'NARROW_ROAD_AHEAD', 42: 'NO_ENTRY', 43: 'NO_PARKING', 44: 'NO_STOPPING_OR_STANDING', 45: 'OVERTAKING_PROHIBITED',
-                    46: 'PASS_EITHER_SIDE', 47: 'PEDESTRIAN_CROSSING', 48: 'PEDESTRIAN_PROHIBITED', 49: 'PRIORITY_FOR_ONCOMING_VEHICLES',
-                    50: 'QUAY_SIDE_OR_RIVER_BANK', 51: 'RESTRICTION_ENDS', 52: 'RIGHT_HAIR_PIN_BEND', 53: 'RIGHT_HAND_CURVE', 54: 'RIGHT_REVERSE_BEND',
-                    55: 'RIGHT_TURN_PROHIBITED', 56: 'ROAD_WIDENS_AHEAD', 57: 'ROUNDABOUT', 58: 'SCHOOL_AHEAD', 59: 'SIDE_ROAD_LEFT',
-                    60: 'SIDE_ROAD_RIGHT', 61: 'SLIPPERY_ROAD', 62: 'SPEED_LIMIT_15', 63: 'SPEED_LIMIT_20', 64: 'SPEED_LIMIT_30',
-                    65: 'SPEED_LIMIT_40', 66: 'SPEED_LIMIT_5', 67: 'SPEED_LIMIT_50', 68: 'SPEED_LIMIT_60', 69: 'SPEED_LIMIT_70',
-                    70: 'SPEED_LIMIT_80', 71: 'STAGGERED_INTERSECTION', 72: 'STEEP_ASCENT', 73: 'STEEP_DESCENT', 74: 'STOP', 75: 'STRAIGHT_PROHIBITED',
-                    76: 'TONGA_PROHIBITED', 77: 'TRAFFIC_SIGNAL', 78: 'TRUCK_PROHIBITED', 79: 'TURN_RIGHT', 80: 'T_INTERSECTION',
-                    81: 'UNGUARDED_LEVEL_CROSSING', 82: 'U_TURN_PROHIBITED', 83: 'WIDTH_LIMIT', 84: 'Y_INTERSECTION'
-                }
-
-                predicted_label_index = np.argmax(prediction)
-                predicted_label = class_names[predicted_label_index]  # Map index to label name
-                st.write("Prediction:", predicted_label)
+                predicted_class = int(np.argmax(prediction))
+                label = id2label.get(predicted_class, "Unknown")
+                st.success(f"Prediction: {label} (Class ID: {predicted_class})")
             except Exception as e:
                 st.error(f"Classification failed: {e}")
         else:
