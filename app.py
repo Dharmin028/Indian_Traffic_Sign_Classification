@@ -70,16 +70,46 @@ def load_model(model_id, model_type):
     try:
         file_type = magic.from_file(output)
         st.write(f"Detected file type: {file_type}")
-        if "keras" not in file_type.lower():
-            st.error(f"Expected a Keras model file, but got: {file_type}")
-            return None
     except Exception as e:
         st.error(f"Failed to detect file type: {e}")
         return None
     
+    # Handle case where file is detected as ZIP
+    if "zip" in file_type.lower():
+        st.warning("Downloaded file is a ZIP archive. Attempting to extract .keras file...")
+        extract_dir = f"extracted_{selected_model_name.lower()}"
+        os.makedirs(extract_dir, exist_ok=True)
+        try:
+            with zipfile.ZipFile(output, 'r') as zip_ref:
+                zip_ref.extractall(extract_dir)
+            st.write(f"Extracted ZIP to {extract_dir}")
+        except Exception as e:
+            st.error(f"Failed to extract ZIP file: {e}")
+            return None
+        
+        # Find .keras file
+        keras_files = glob.glob(os.path.join(extract_dir, "*.keras"))
+        if not keras_files:
+            st.error("No .keras file found in the ZIP archive!")
+            return None
+        keras_file = keras_files[0]
+    else:
+        keras_file = output
+    
+    # Validate and load Keras model
+    try:
+        file_type = magic.from_file(keras_file)
+        st.write(f"Detected file type for {keras_file}: {file_type}")
+        if "keras" not in file_type.lower() and "zip" in file_type.lower():
+            st.error(f"Expected a Keras model file, but got: {file_type}")
+            return None
+    except Exception as e:
+        st.error(f"Failed to detect file type for {keras_file}: {e}")
+        return None
+    
     if model_type == "keras":
         try:
-            model = tf.keras.models.load_model(output)
+            model = tf.keras.models.load_model(keras_file)
             st.write("Keras model (.keras format) loaded successfully.")
         except Exception as e:
             st.error(f"Failed to load Keras model: {e}")
