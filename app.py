@@ -106,15 +106,13 @@ if st.button("Load Model"):
 # Upload image
 uploaded_file = st.file_uploader("Upload an image", type=["jpg", "png", "jpeg"])
 
-# Preprocess image function
-def preprocess_test_image(image_path):
-    image = cv2.imread(image_path)
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    image = cv2.resize(image, (64, 64))  # Adjust to model input size
-    image = image.astype('float32') / 255.0  # Normalize
-    return np.expand_dims(image, axis=0)  # Add batch dimension
+# Preprocess uploaded image using PIL (no cv2 needed)
+def preprocess_uploaded_image(pil_image):
+    image = pil_image.resize((64, 64))
+    image = np.array(image).astype('float32') / 255.0
+    return np.expand_dims(image, axis=0)
 
-# Display and classify image
+# Classify button logic
 if uploaded_file is not None:
     image = Image.open(uploaded_file)
     st.image(image, caption="Uploaded Image", use_column_width=True)
@@ -122,26 +120,16 @@ if uploaded_file is not None:
     if st.button("Classify"):
         if st.session_state.model:
             try:
-                # Convert PIL image to OpenCV format
-                image_cv = np.array(image)
-                image_cv = cv2.cvtColor(image_cv, cv2.COLOR_RGB2BGR)
-                
-                # Save to a temporary file to use preprocess_test_image
-                temp_path = "temp_image.jpg"
-                cv2.imwrite(temp_path, image_cv)
-                
-                # Preprocess image
-                input_data = preprocess_test_image(temp_path)
-                
+                input_data = preprocess_uploaded_image(image)
+
                 if selected_model_type == "keras":
                     prediction = st.session_state.model.predict(input_data)
                 else:
                     with torch.no_grad():
-                        prediction = st.session_state.model(torch.tensor(input_data, dtype=torch.float32)).numpy()
-                
-                predicted_class = int(np.argmax(prediction))
-                label = id2label.get(predicted_class, "Unknown")
-                st.success(f"Prediction: {label} (Class ID: {predicted_class})")
+                        input_tensor = torch.tensor(input_data, dtype=torch.float32)
+                        prediction = st.session_state.model(input_tensor).numpy()
+
+                st.write("Prediction:", np.argmax(prediction))
             except Exception as e:
                 st.error(f"Classification failed: {e}")
         else:
