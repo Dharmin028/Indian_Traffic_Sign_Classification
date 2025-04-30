@@ -7,12 +7,20 @@ import cv2
 import numpy as np
 from PIL import Image
 import magic
+from datasets import load_dataset
 
 # Define model options and corresponding Google Drive File IDs
 MODEL_OPTIONS = {
     "CNN": ("1---NhvKS9H-c5yf04hB8NzOrtIpFcKL8", "keras"),  # Replace with actual File ID of model.keras
     "ResNet50": ("1nv2I-K8QKbGc62eQDx5OLcRYinjJPXai", "keras")
 }
+# Automatically fetch id2label mapping from Hugging Face dataset
+@st.cache_data
+def get_class_labels():
+    dataset = load_dataset("kannanwisen/Indian-Traffic-Sign-Classification")
+    class_names = dataset['train'].features['label'].names
+    id2label = {i: label for i, label in enumerate(class_names)}
+    return id2label
 
 # Streamlit UI
 st.title("Traffic Sign Classification")
@@ -31,7 +39,7 @@ else:
 @st.cache_resource
 def load_model(model_id, model_type):
     url = f"https://drive.google.com/uc?id={model_id}"
-    output = "model.keras"  # Download directly as model.keras
+    output = f"{model_id}.keras"  # Download directly as model.keras
     
     st.write(f"Downloading model from {url} to {output}...")
     try:
@@ -77,9 +85,10 @@ if st.button("Load Model"):
         st.success(f"✅ {selected_model_name} Loaded Successfully!")
     else:
         st.error("❌ Model loading failed.")
-
+id2label = get_class_labels()
 # Upload image
 uploaded_file = st.file_uploader("Upload an image", type=["jpg", "png", "jpeg"])
+with st.spinner("Uploading..."):
 
 # Preprocess image function
 def preprocess_test_image(image_path):
@@ -95,6 +104,7 @@ if uploaded_file is not None:
     st.image(image, caption="Uploaded Image", use_column_width=True)
 
     if st.button("Classify"):
+        with st.spinner("Classifying..."):
         if st.session_state.model:
             try:
                 # Convert PIL image to OpenCV format
@@ -114,7 +124,9 @@ if uploaded_file is not None:
                     with torch.no_grad():
                         prediction = st.session_state.model(torch.tensor(input_data, dtype=torch.float32)).numpy()
                 
-                st.write("Prediction:", np.argmax(prediction))  # Adjust based on your class labels
+                predicted_class_idx = int(np.argmax(prediction))
+                predicted_label = id2label.get(predicted_class_idx, "Unknown")
+                st.success(f"Prediction: {predicted_label} (Class ID: {predicted_class_idx})")
             except Exception as e:
                 st.error(f"Classification failed: {e}")
         else:
