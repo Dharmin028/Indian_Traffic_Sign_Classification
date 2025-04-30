@@ -3,7 +3,6 @@ import tensorflow as tf
 import gdown
 import torch
 import os
-import cv2
 import numpy as np
 from PIL import Image
 import magic
