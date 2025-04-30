@@ -88,7 +88,6 @@ if st.button("Load Model"):
 id2label = get_class_labels()
 # Upload image
 uploaded_file = st.file_uploader("Upload an image", type=["jpg", "png", "jpeg"])
-with st.spinner("Uploading..."):
 
 # Preprocess image function
 def preprocess_test_image(image_path):
