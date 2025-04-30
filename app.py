@@ -6,8 +6,6 @@ import cv2
 import numpy as np
 from PIL import Image
 import magic
-import zipfile
-import glob
 import tempfile
 
 # Define model options and corresponding Google Drive File IDs
@@ -55,7 +53,7 @@ else:
 @st.cache_resource
 def load_model(model_id, model_type):
     url = f"https://drive.google.com/uc?id={model_id}"
-    output = "model.zip"  # Download as ZIP file
+    output = f"{selected_model_name.lower()}_model.keras"  # Unique filename per model
     
     st.write(f"Downloading model from {url} to {output}...")
     try:
@@ -72,45 +70,16 @@ def load_model(model_id, model_type):
     try:
         file_type = magic.from_file(output)
         st.write(f"Detected file type: {file_type}")
-    except Exception as e:
-        st.error(f"Failed to detect file type: {e}")
-        return None
-    
-    # Handle ZIP file
-    if "zip" in file_type.lower():
-        extract_dir = "extracted_model"
-        os.makedirs(extract_dir, exist_ok=True)
-        try:
-            with zipfile.ZipFile(output, 'r') as zip_ref:
-                zip_ref.extractall(extract_dir)
-            st.write(f"Extracted ZIP to {extract_dir}")
-        except Exception as e:
-            st.error(f"Failed to extract ZIP file: {e}")
-            return None
-        
-        # Find .keras file
-        keras_files = glob.glob(os.path.join(extract_dir, "*.keras"))
-        if not keras_files:
-            st.error("No .keras file found in the ZIP archive!")
-            return None
-        keras_file = keras_files[0]
-    else:
-        keras_file = output
-    
-    # Validate and load Keras model
-    try:
-        file_type = magic.from_file(keras_file)
-        st.write(f"Detected file type for {keras_file}: {file_type}")
         if "keras" not in file_type.lower():
             st.error(f"Expected a Keras model file, but got: {file_type}")
             return None
     except Exception as e:
-        st.error(f"Failed to detect file type for {keras_file}: {e}")
+        st.error(f"Failed to detect file type: {e}")
         return None
     
     if model_type == "keras":
         try:
-            model = tf.keras.models.load_model(keras_file)
+            model = tf.keras.models.load_model(output)
             st.write("Keras model (.keras format) loaded successfully.")
         except Exception as e:
             st.error(f"Failed to load Keras model: {e}")
