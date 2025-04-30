@@ -107,9 +107,11 @@ uploaded_file = st.file_uploader("Upload an image", type=["jpg", "png", "jpeg"])
 
 # Preprocess uploaded image using PIL (no cv2 needed)
 def preprocess_uploaded_image(pil_image):
-    image = pil_image.resize((64, 64))
+    # Ensure image is in RGB
+    image = pil_image.convert("RGB")
+    image = image.resize((64, 64))
     image = np.array(image).astype('float32') / 255.0
-    return np.expand_dims(image, axis=0)
+    return np.expand_dims(image, axis=0)  # shape becomes (1, 64, 64, 3)
 
 # Classify button logic
 if uploaded_file is not None:
