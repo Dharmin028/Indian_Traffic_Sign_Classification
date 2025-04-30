@@ -131,6 +131,10 @@ if uploaded_file is not None:
                         prediction = st.session_state.model(input_tensor).numpy()
 
                 st.write("Prediction:", np.argmax(prediction))
+                predicted_class = int(np.argmax(prediction))
+                predicted_label = CLASS_NAMES.get(predicted_class, "id2label")
+
+                st.success(f"Predicted Class: {predicted_class} - {predicted_label}")
             except Exception as e:
                 st.error(f"Classification failed: {e}")
         else:
