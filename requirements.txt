@@ -7,3 +7,4 @@ numpy
 h5py
 python-magic
 opencv-python-headless
+datasets
