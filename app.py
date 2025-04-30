@@ -1,41 +1,42 @@
 import streamlit as st
 import tensorflow as tf
 import gdown
+import torch
 import os
-import cv2
 import numpy as np
-from PIL import Image
 import magic
-import zipfile
-import glob
-import tempfile
+import cv2
+from PIL import Image
 
 # Define model options and corresponding Google Drive File IDs
 MODEL_OPTIONS = {
-    "CNN": ("1---NhvKS9H-c5yf04hB8NzOrtIpFcKL8", "keras"),  # Replace with actual File ID
+    "CNN": ("1---NhvKS9H-c5yf04hB8NzOrtIpFcKL8", "keras"),  # Replace with actual File ID of model.keras
     "ResNet50": ("1nv2I-K8QKbGc62eQDx5OLcRYinjJPXai", "keras")
 }
 
-# Hardcoded id2label mapping (provided by user)
-id2label = {
-    0: 'ALL_MOTOR_VEHICLE_PROHIBITED', 1: 'AXLE_LOAD_LIMIT', 2: 'BARRIER_AHEAD', 3: 'BULLOCK_AND_HANDCART_PROHIBITED',
-    4: 'BULLOCK_PROHIBITED', 5: 'CATTLE', 6: 'COMPULSARY_AHEAD', 7: 'COMPULSARY_AHEAD_OR_TURN_LEFT',
-    8: 'COMPULSARY_AHEAD_OR_TURN_RIGHT', 9: 'COMPULSARY_CYCLE_TRACK', 10: 'COMPULSARY_KEEP_LEFT',
-    11: 'COMPULSARY_KEEP_RIGHT', 12: 'COMPULSARY_MINIMUM_SPEED', 13: 'COMPULSARY_SOUND_HORN', 14: 'COMPULSARY_TURN_LEFT',
-    15: 'COMPULSARY_TURN_LEFT_AHEAD', 16: 'COMPULSARY_TURN_RIGHT', 17: 'COMPULSARY_TURN_RIGHT_AHEAD', 18: 'CROSS_ROAD',
-    19: 'CYCLE_CROSSING', 20: 'CYCLE_PROHIBITED', 21: 'DANGEROUS_DIP', 22: 'DIRECTION', 23: 'FALLING_ROCKS', 24: 'FERRY',
-    25: 'GAP_IN_MEDIAN', 26: 'GIVE_WAY', 27: 'GUARDED_LEVEL_CROSSING', 28: 'HANDCART_PROHIBITED', 29: 'HEIGHT_LIMIT',
-    30: 'HORN_PROHIBITED', 31: 'HUMP_OR_ROUGH_ROAD', 32: 'LEFT_HAIR_PIN_BEND', 33: 'LEFT_HAND_CURVE', 34: 'LEFT_REVERSE_BEND',
-    35: 'LEFT_TURN_PROHIBITED', 36: 'LENGTH_LIMIT', 37: 'LOAD_LIMIT', 38: 'LOOSE_GRAVEL', 39: 'MEN_AT_WORK', 40: 'NARROW_BRIDGE',
-    41: 'NARROW_ROAD_AHEAD', 42: 'NO_ENTRY', 43: 'NO_PARKING', 44: 'NO_STOPPING_OR_STANDING', 45: 'OVERTAKING_PROHIBITED',
-    46: 'PASS_EITHER_SIDE', 47: 'PEDESTRIAN_CROSSING', 48: 'PEDESTRIAN_PROHIBITED', 49: 'PRIORITY_FOR_ONCOMING_VEHICLES',
-    50: 'QUAY_SIDE_OR_RIVER_BANK', 51: 'RESTRICTION_ENDS', 52: 'RIGHT_HAIR_PIN_BEND', 53: 'RIGHT_HAND_CURVE', 54: 'RIGHT_REVERSE_BEND',
-    55: 'RIGHT_TURN_PROHIBITED', 56: 'ROAD_WIDENS_AHEAD', 57: 'ROUNDABOUT', 58: 'SCHOOL_AHEAD', 59: 'SIDE_ROAD_LEFT',
-    60: 'SIDE_ROAD_RIGHT', 61: 'SLIPPERY_ROAD', 62: 'SPEED_LIMIT_15', 63: 'SPEED_LIMIT_20', 64: 'SPEED_LIMIT_30',
-    65: 'SPEED_LIMIT_40', 66: 'SPEED_LIMIT_5', 67: 'SPEED_LIMIT_50', 68: 'SPEED_LIMIT_60', 69: 'SPEED_LIMIT_70',
-    70: 'SPEED_LIMIT_80', 71: 'STAGGERED_INTERSECTION', 72: 'STEEP_ASCENT', 73: 'STEEP_DESCENT', 74: 'STOP', 75: 'STRAIGHT_PROHIBITED',
-    76: 'TONGA_PROHIBITED', 77: 'TRAFFIC_SIGNAL', 78: 'TRUCK_PROHIBITED', 79: 'TURN_RIGHT', 80: 'T_INTERSECTION',
-    81: 'UNGUARDED_LEVEL_CROSSING', 82: 'U_TURN_PROHIBITED', 83: 'WIDTH_LIMIT', 84: 'Y_INTERSECTION'
+# Define class labels as a dictionary (already provided)
+class_labels = {
+    'ALL_MOTOR_VEHICLE_PROHIBITED': 0, 'AXLE_LOAD_LIMIT': 1, 'BARRIER_AHEAD': 2,
+    'BULLOCK_AND_HANDCART_PROHIBITED': 3, 'BULLOCK_PROHIBITED': 4, 'CATTLE': 5,
+    'COMPULSARY_AHEAD': 6, 'COMPULSARY_AHEAD_OR_TURN_LEFT': 7, 'COMPULSARY_AHEAD_OR_TURN_RIGHT': 8,
+    'COMPULSARY_CYCLE_TRACK': 9, 'COMPULSARY_KEEP_LEFT': 10, 'COMPULSARY_KEEP_RIGHT': 11,
+    'COMPULSARY_MINIMUM_SPEED': 12, 'COMPULSARY_SOUND_HORN': 13, 'COMPULSARY_TURN_LEFT': 14,
+    'COMPULSARY_TURN_LEFT_AHEAD': 15, 'COMPULSARY_TURN_RIGHT': 16, 'COMPULSARY_TURN_RIGHT_AHEAD': 17,
+    'CROSS_ROAD': 18, 'CYCLE_CROSSING': 19, 'CYCLE_PROHIBITED': 20, 'DANGEROUS_DIP': 21,
+    'DIRECTION': 22, 'FALLING_ROCKS': 23, 'FERRY': 24, 'GAP_IN_MEDIAN': 25, 'GIVE_WAY': 26,
+    'GUARDED_LEVEL_CROSSING': 27, 'HANDCART_PROHIBITED': 28, 'HEIGHT_LIMIT': 29, 'HORN_PROHIBITED': 30,
+    'HUMP_OR_ROUGH_ROAD': 31, 'LEFT_HAIR_PIN_BEND': 32, 'LEFT_HAND_CURVE': 33, 'LEFT_REVERSE_BEND': 34,
+    'LEFT_TURN_PROHIBITED': 35, 'LENGTH_LIMIT': 36, 'LOAD_LIMIT': 37, 'LOOSE_GRAVEL': 38, 'MEN_AT_WORK': 39,
+    'NARROW_BRIDGE': 40, 'NARROW_ROAD_AHEAD': 41, 'NO_ENTRY': 42, 'NO_PARKING': 43, 'NO_STOPPING_OR_STANDING': 44,
+    'OVERTAKING_PROHIBITED': 45, 'PASS_EITHER_SIDE': 46, 'PEDESTRIAN_CROSSING': 47, 'PEDESTRIAN_PROHIBITED': 48,
+    'PRIORITY_FOR_ONCOMING_VEHICLES': 49, 'QUAY_SIDE_OR_RIVER_BANK': 50, 'RESTRICTION_ENDS': 51,
+    'RIGHT_HAIR_PIN_BEND': 52, 'RIGHT_HAND_CURVE': 53, 'RIGHT_REVERSE_BEND': 54, 'RIGHT_TURN_PROHIBITED': 55,
+    'ROAD_WIDENS_AHEAD': 56, 'ROUNDABOUT': 57, 'SCHOOL_AHEAD': 58, 'SIDE_ROAD_LEFT': 59, 'SIDE_ROAD_RIGHT': 60,
+    'SLIPPERY_ROAD': 61, 'SPEED_LIMIT_15': 62, 'SPEED_LIMIT_20': 63, 'SPEED_LIMIT_30': 64, 'SPEED_LIMIT_40': 65,
+    'SPEED_LIMIT_5': 66, 'SPEED_LIMIT_50': 67, 'SPEED_LIMIT_60': 68, 'SPEED_LIMIT_70': 69, 'SPEED_LIMIT_80': 70,
+    'STAGGERED_INTERSECTION': 71, 'STEEP_ASCENT': 72, 'STEEP_DESCENT': 73, 'STOP': 74, 'STRAIGHT_PROHIBITED': 75,
+    'TONGA_PROHIBITED': 76, 'TRAFFIC_SIGNAL': 77, 'TRUCK_PROHIBITED': 78, 'TURN_RIGHT': 79, 'T_INTERSECTION': 80,
+    'UNGUARDED_LEVEL_CROSSING': 81, 'U_TURN_PROHIBITED': 82, 'WIDTH_LIMIT': 83, 'Y_INTERSECTION': 84
 }
 
 # Streamlit UI
@@ -55,7 +56,7 @@ else:
 @st.cache_resource
 def load_model(model_id, model_type):
     url = f"https://drive.google.com/uc?id={model_id}"
-    output = f"{selected_model_name.lower()}_model.keras"  # Unique filename per model
+    output = "model.keras"  # Download directly as model.keras
     
     st.write(f"Downloading model from {url} to {output}...")
     try:
@@ -69,56 +70,24 @@ def load_model(model_id, model_type):
         return None
     
     st.write(f"File size: {os.path.getsize(output)} bytes")
-    try:
-        file_type = magic.from_file(output)
-        st.write(f"Detected file type: {file_type}")
-    except Exception as e:
-        st.error(f"Failed to detect file type: {e}")
-        return None
-    
-    # Handle case where file is detected as ZIP
-    if "zip" in file_type.lower():
-        st.warning("Downloaded file is a ZIP archive. Attempting to extract .keras file...")
-        extract_dir = f"extracted_{selected_model_name.lower()}"
-        os.makedirs(extract_dir, exist_ok=True)
-        try:
-            with zipfile.ZipFile(output, 'r') as zip_ref:
-                zip_ref.extractall(extract_dir)
-            st.write(f"Extracted ZIP to {extract_dir}")
-        except Exception as e:
-            st.error(f"Failed to extract ZIP file: {e}")
-            return None
-        
-        # Find .keras file
-        keras_files = glob.glob(os.path.join(extract_dir, "*.keras"))
-        if not keras_files:
-            st.error("No .keras file found in the ZIP archive!")
-            return None
-        keras_file = keras_files[0]
-    else:
-        keras_file = output
-    
-    # Validate and load Keras model
-    try:
-        file_type = magic.from_file(keras_file)
-        st.write(f"Detected file type for {keras_file}: {file_type}")
-        if "keras" not in file_type.lower() and "zip" in file_type.lower():
-            st.error(f"Expected a Keras model file, but got: {file_type}")
-            return None
-    except Exception as e:
-        st.error(f"Failed to detect file type for {keras_file}: {e}")
-        return None
+    file_type = magic.from_file(output)
+    st.write(f"Detected file type: {file_type}")
     
     if model_type == "keras":
         try:
-            model = tf.keras.models.load_model(keras_file)
+            model = tf.keras.models.load_model(output)
             st.write("Keras model (.keras format) loaded successfully.")
         except Exception as e:
             st.error(f"Failed to load Keras model: {e}")
             return None
     else:
-        st.error("Only Keras models are supported in this configuration!")
-        return None
+        try:
+            model = torch.load(output, map_location=torch.device('cpu'))
+            model.eval()
+            st.write("PyTorch model loaded successfully.")
+        except Exception as e:
+            st.error(f"Failed to load PyTorch model: {e}")
+            return None
     
     return model
 
@@ -138,18 +107,12 @@ if st.button("Load Model"):
 uploaded_file = st.file_uploader("Upload an image", type=["jpg", "png", "jpeg"])
 
 # Preprocess image function
-def preprocess_test_image(image_path, model_name):
+def preprocess_test_image(image_path):
     image = cv2.imread(image_path)
-    if image is None:
-        raise ValueError("Failed to load image")
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    if model_name == "ResNet50":
-        image = cv2.resize(image, (224, 224))  # ResNet50 input size
-        image = tf.keras.applications.resnet50.preprocess_input(image)  # ResNet50 preprocessing
-    else:
-        image = cv2.resize(image, (64, 64))  # Default for CNN
-        image = image.astype('float32') / 255.0  # Normalize
-    return np.expand_dims(image, axis=0)  # Add batch dimension
+    image = cv2.resize(image, (64, 64))
+    image = image.astype('float32') / 255.0
+    return np.expand_dims(image, axis=0)
 
 # Display and classify image
 if uploaded_file is not None:
@@ -163,22 +126,21 @@ if uploaded_file is not None:
                 image_cv = np.array(image)
                 image_cv = cv2.cvtColor(image_cv, cv2.COLOR_RGB2BGR)
                 
-                # Save to a temporary file
-                with tempfile.NamedTemporaryFile(suffix=".jpg", delete=True) as temp_file:
-                    temp_path = temp_file.name
-                    cv2.imwrite(temp_path, image_cv)
-                    input_data = preprocess_test_image(temp_path, selected_model_name)
+                # Save to a temporary file to use preprocess_test_image
+                temp_path = "temp_image.jpg"
+                cv2.imwrite(temp_path, image_cv)
                 
-                # Classify
-                if selected_model_type == "keras":
-                    prediction = st.session_state.model.predict(input_data)
-                else:
-                    st.error("Only Keras models are supported!")
-                    st.stop()
+                # Preprocess image
+                input_data = preprocess_test_image(temp_path)
                 
-                predicted_class_idx = int(np.argmax(prediction))
-                predicted_label = id2label.get(predicted_class_idx, "Unknown")
-                st.success(f"Prediction: {predicted_label} (Class ID: {predicted_class_idx})")
+                # Predict
+                prediction = st.session_state.model.predict(input_data)
+                predicted_label_index = np.argmax(prediction)  # Get index
+                # Map the index to the class label
+                predicted_label = [k for k, v in class_labels.items() if v == predicted_label_index][0]
+                
+                # Display result
+                st.write(f"Prediction: {predicted_label} (Index: {predicted_label_index})")
             except Exception as e:
                 st.error(f"Classification failed: {e}")
         else:
