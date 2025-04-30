@@ -6,6 +6,8 @@ import cv2
 import numpy as np
 from PIL import Image
 import magic
+import zipfile
+import glob
 import tempfile
 
 # Define model options and corresponding Google Drive File IDs
