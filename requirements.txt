@@ -1,10 +1,7 @@
-streamlit
-tensorflow
-gdown
-torch
-pillow
-numpy
-h5py
-python-magic
-opencv-python-headless
-datasets
+streamlit==1.29.0
+tensorflow==2.15.0
+gdown==5.2.0
+opencv-python==4.9.0
+pillow==10.2.0
+python-magic==0.4.27
+numpy==1.26.4
