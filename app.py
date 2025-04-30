@@ -106,7 +106,7 @@ if st.button("Load Model"):
 uploaded_file = st.file_uploader("Upload an image", type=["jpg", "png", "jpeg"])
 
 # Preprocess image function using PIL
-def preprocess_test_image(image):
+def preprocess_uploaded_image(image):
     image = image.convert("RGB")  # Ensure the image is in RGB format
     image = image.resize((64, 64))  # Resize to (64, 64)
     image = np.array(image)  # Convert to NumPy array
